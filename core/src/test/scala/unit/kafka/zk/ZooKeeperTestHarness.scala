@@ -28,6 +28,7 @@ import org.junit.experimental.categories.Category
 
 import scala.collection.Set
 import scala.collection.JavaConverters._
+import scala.collection.mutable.{ArrayBuffer, Buffer}
 import org.apache.kafka.clients.producer.KafkaProducer
 import org.apache.kafka.clients.consumer.internals.AbstractCoordinator
 import kafka.controller.ControllerEventManager
@@ -37,6 +38,7 @@ import org.apache.zookeeper.{WatchedEvent, Watcher, ZooKeeper}
 
 @Category(Array(classOf[IntegrationTest]))
 abstract class ZooKeeperTestHarness extends Logging {
+  protected def numClusters: Int = 1 // a.k.a. numZookeepers since each Kafka cluster requires its own ZK (or chroot...)
 
   val zkConnectionTimeout = 10000
   val zkSessionTimeout = 15000 // Allows us to avoid ZK session expiration due to GC up to 2/3 * 15000ms = 10 secs
@@ -44,28 +46,51 @@ abstract class ZooKeeperTestHarness extends Logging {
 
   protected def zkAclsEnabled: Option[Boolean] = None
 
-  var zkClient: KafkaZkClient = null
-  var adminZkClient: AdminZkClient = null
+  private val zkClients: Buffer[KafkaZkClient] = new ArrayBuffer(numClusters)
+  private val adminZkClients: Buffer[AdminZkClient] = new ArrayBuffer(numClusters)
+  private val zookeepers: Buffer[EmbeddedZookeeper] = new ArrayBuffer(numClusters)
 
-  var zookeeper: EmbeddedZookeeper = null
+  // backward-compatible accessors for ~99 existing classes that refer to one or more of these as variables:
+  def zkClient: KafkaZkClient = zkClient(0)
+  def adminZkClient: AdminZkClient = adminZkClient(0)
+  def zookeeper: EmbeddedZookeeper = zookeeper(0)
+  def zkConnect: String = zkConnect(0)
 
-  def zkPort: Int = zookeeper.port
-  def zkConnect: String = s"127.0.0.1:$zkPort"
-  
+  // extended accessors to support multi-ZK tests:
+
+  def zkClient(i: Int): KafkaZkClient = {
+    zkClients(i)
+  }
+
+  def adminZkClient(i: Int): AdminZkClient = {
+    adminZkClients(i)
+  }
+
+  def zookeeper(i: Int): EmbeddedZookeeper = {
+    zookeepers(i)
+  }
+
+  def zkConnect(i: Int): String = {
+    s"127.0.0.1:${zookeeper(i).port}"
+  }
+
   @Before
   def setUp(): Unit = {
-    zookeeper = new EmbeddedZookeeper()
-    zkClient = KafkaZkClient(zkConnect, zkAclsEnabled.getOrElse(JaasUtils.isZkSaslEnabled), zkSessionTimeout,
-      zkConnectionTimeout, zkMaxInFlightRequests, Time.SYSTEM)
-    adminZkClient = new AdminZkClient(zkClient)
+    (0 until numClusters).map { i =>
+      debug(s"creating zookeeper/zkClient/adminZkClient " + (i+1) + " of " + numClusters)
+      zookeepers += new EmbeddedZookeeper()
+      zkClients += KafkaZkClient(zkConnect(i), zkAclsEnabled.getOrElse(JaasUtils.isZkSaslEnabled), zkSessionTimeout,
+        zkConnectionTimeout, zkMaxInFlightRequests, Time.SYSTEM)
+      adminZkClients += new AdminZkClient(zkClients(i))
+    }
   }
 
   @After
   def tearDown(): Unit = {
-    if (zkClient != null)
-     zkClient.close()
-    if (zookeeper != null)
-      CoreUtils.swallow(zookeeper.shutdown(), this)
+    for (zkc <- zkClients)
+      zkc.close()
+    for (zk <- zookeepers)
+      CoreUtils.swallow(zk.shutdown(), this)
     Configuration.setConfiguration(null)
   }
 

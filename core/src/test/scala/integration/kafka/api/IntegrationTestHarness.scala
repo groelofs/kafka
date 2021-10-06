@@ -39,7 +39,7 @@ import scala.collection.Seq
  * A helper class for writing integration tests that involve producers, consumers, and servers
  */
 abstract class IntegrationTestHarness extends KafkaServerTestHarness {
-  protected def brokerCount: Int
+  protected def brokerCount: Int  // now interpreted as "brokerCountPerCluster" (should rename, but 41 files, sigh...)
   protected def logDirCount: Int = 1
 
   val producerConfig = new Properties
@@ -58,9 +58,12 @@ abstract class IntegrationTestHarness extends KafkaServerTestHarness {
     props.foreach(_ ++= serverConfig)
   }
 
-  override def generateConfigs: Seq[KafkaConfig] = {
-    val cfgs = TestUtils.createBrokerConfigs(brokerCount, zkConnect, interBrokerSecurityProtocol = Some(securityProtocol),
-      trustStoreFile = trustStoreFile, saslProperties = serverSaslProperties, logDirCount = logDirCount)
+  override def generateConfigs: Seq[KafkaConfig] = generateConfigsByCluster(0)
+
+  override def generateConfigsByCluster(clusterId: Int): Seq[KafkaConfig] = {
+    val cfgs = TestUtils.createBrokerConfigs(brokerCount, zkConnect(clusterId),
+      interBrokerSecurityProtocol = Some(securityProtocol), trustStoreFile = trustStoreFile,
+      saslProperties = serverSaslProperties, logDirCount = logDirCount)
     modifyConfigs(cfgs)
     cfgs.map(KafkaConfig.fromProps)
   }
@@ -92,23 +95,25 @@ abstract class IntegrationTestHarness extends KafkaServerTestHarness {
 
     super.setUp()
 
-    producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    // for now, client configs are set up for cluster 0 only (even though offsets topic is created in all clusters)
+
+    producerConfig.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList(0))
     producerConfig.putIfAbsent(ProducerConfig.ACKS_CONFIG, "-1")
     producerConfig.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[ByteArraySerializer].getName)
     producerConfig.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, classOf[ByteArraySerializer].getName)
     producerConfig.putIfAbsent(ProducerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, boolean2Boolean(true))
 
-    consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    consumerConfig.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList(0))
     consumerConfig.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
     consumerConfig.putIfAbsent(ConsumerConfig.GROUP_ID_CONFIG, "group")
     consumerConfig.putIfAbsent(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, classOf[ByteArrayDeserializer].getName)
     consumerConfig.putIfAbsent(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, classOf[ByteArrayDeserializer].getName)
     consumerConfig.putIfAbsent(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, boolean2Boolean(true))
 
-    adminClientConfig.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
+    adminClientConfig.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList(0))
 
     if (createOffsetsTopic)
-      TestUtils.createOffsetsTopic(zkClient, servers)
+      (0 until numClusters).foreach { i => TestUtils.createOffsetsTopic(zkClient(i), serversByCluster(i)) }
   }
 
   def clientSecurityProps(certAlias: String): Properties = {
@@ -116,6 +121,7 @@ abstract class IntegrationTestHarness extends KafkaServerTestHarness {
       clientSaslProperties)
   }
 
+  // cluster 0 only
   def createProducer[K, V](keySerializer: Serializer[K] = new ByteArraySerializer,
                            valueSerializer: Serializer[V] = new ByteArraySerializer,
                            configOverrides: Properties = new Properties): KafkaProducer[K, V] = {
@@ -127,6 +133,7 @@ abstract class IntegrationTestHarness extends KafkaServerTestHarness {
     producer
   }
 
+  // cluster 0 only
   def createConsumer[K, V](keyDeserializer: Deserializer[K] = new ByteArrayDeserializer,
                            valueDeserializer: Deserializer[V] = new ByteArrayDeserializer,
                            configOverrides: Properties = new Properties,
@@ -140,6 +147,7 @@ abstract class IntegrationTestHarness extends KafkaServerTestHarness {
     consumer
   }
 
+  // cluster 0 only
   def createAdminClient(configOverrides: Properties = new Properties): Admin = {
     val props = new Properties
     props ++= adminClientConfig

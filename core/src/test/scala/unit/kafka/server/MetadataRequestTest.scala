@@ -220,7 +220,7 @@ class MetadataRequestTest extends BaseRequestTest {
   @Test
   def testPreferredReplica(): Unit = {
     val replicaAssignment = Map(0 -> Seq(1, 2, 0), 1 -> Seq(2, 0, 1))
-    createTopic("t1", replicaAssignment)
+    createTopic("t1", replicaAssignment, 0)
     // Call controller and one different broker to ensure that metadata propagation works correctly
     val responses = Seq(
       sendMetadataRequest(new MetadataRequest.Builder(Seq("t1").asJava, true).build(), Some(controllerSocketServer)),

@@ -1595,12 +1595,12 @@ class PlaintextConsumerTest extends BaseConsumerTest {
     consumeAndVerifyRecords(consumer = consumer, numRecords = numRecords, startingOffset = 0)
 
     def assertNoMetric(broker: KafkaServer, name: String, quotaType: QuotaType, clientId: String): Unit = {
-        val metricName = broker.metrics.metricName("throttle-time",
+        val metricName = broker.metrics.metricName(name,
                                   quotaType.toString,
                                   "",
                                   "user", "",
                                   "client-id", clientId)
-        assertNull("Metric should not hanve been created " + metricName, broker.metrics.metric(metricName))
+        assertNull("Metric should not have been created " + metricName, broker.metrics.metric(metricName))
     }
     servers.foreach(assertNoMetric(_, "byte-rate", QuotaType.Produce, producerClientId))
     servers.foreach(assertNoMetric(_, "throttle-time", QuotaType.Produce, producerClientId))
@@ -1614,7 +1614,7 @@ class PlaintextConsumerTest extends BaseConsumerTest {
 
     def assertNoExemptRequestMetric(broker: KafkaServer): Unit = {
         val metricName = broker.metrics.metricName("exempt-request-time", QuotaType.Request.toString, "")
-        assertNull("Metric should not hanve been created " + metricName, broker.metrics.metric(metricName))
+        assertNull("Metric should not have been created " + metricName, broker.metrics.metric(metricName))
     }
     servers.foreach(assertNoExemptRequestMetric(_))
   }

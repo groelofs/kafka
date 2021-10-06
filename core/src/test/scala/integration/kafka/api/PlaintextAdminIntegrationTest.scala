@@ -681,7 +681,7 @@ class PlaintextAdminIntegrationTest extends BaseAdminIntegrationTest {
     restartDeadBrokers()
 
     client.close()
-    brokerList = TestUtils.bootstrapServers(servers, listenerName)
+    brokerLists(0) = TestUtils.bootstrapServers(servers, listenerName)
     client = AdminClient.create(createConfig)
 
     TestUtils.waitUntilTrue(() => {
