@@ -40,9 +40,9 @@ import org.apache.kafka.common.utils.Time
 abstract class KafkaServerTestHarness extends ZooKeeperTestHarness {
   private val instanceConfigs: Buffer[Seq[KafkaConfig]] = new ArrayBuffer(numClusters)
   private val instanceServers: Buffer[Buffer[KafkaServer]] = new ArrayBuffer(numClusters)
+  private val brokerLists: Buffer[String] = new ArrayBuffer(numClusters)
   private var alive: Array[Boolean] = null  // not yet multi-cluster-aware (used by only 8 tests)
 
-  val brokerLists: Buffer[String] = new ArrayBuffer(numClusters)
   val kafkaPrincipalType = KafkaPrincipal.USER_TYPE
 
   // backward-compatible accessors for existing classes that refer to one or more of these as variables (or
@@ -50,6 +50,7 @@ abstract class KafkaServerTestHarness extends ZooKeeperTestHarness {
 
   def servers: Buffer[KafkaServer] = serversByCluster(0)
   def brokerList: String = brokerList(0)
+  def brokerList_=(listOfBrokers: String) { brokerLists(0) = listOfBrokers }
   // configs() is not currently overridden anywhere (=> made final to prevent that), but it is used in ~ five
   // other test classes, so we can't make it private
   final def configs: Seq[KafkaConfig] = configsByCluster(0)
