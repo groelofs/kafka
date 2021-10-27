@@ -95,15 +95,6 @@ abstract class MultiClusterKafkaServerTestHarness extends MultiClusterZooKeeperT
    */
   def configureSecurityAfterServersStart(clusterId: Int): Unit = {}
 
-//def configs: Seq[KafkaConfig] = {
-//  if (instanceConfigs == null)
-//    instanceConfigs = generateConfigs
-//  instanceConfigs
-//}
-
-  // TODO:  extend for multi-cluster or omit?
-//def serverForId(id: Int): Option[KafkaServer] = servers.find(s => s.config.brokerId == id)
-
   def boundPort(server: KafkaServer): Int = server.boundPort(listenerName)
 
   protected def securityProtocol: SecurityProtocol = SecurityProtocol.PLAINTEXT

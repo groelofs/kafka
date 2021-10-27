@@ -35,24 +35,15 @@ class ProxyBasedFederationTest extends MultiClusterAbstractConsumerTest {
 
   @Test
   def testBasicMultiClusterSetup(): Unit = {
-    debug(s"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-    debug(s"beginning testBasicMultiClusterSetup() with numClusters=${numClusters} and brokerCountPerCluster=${brokerCountPerCluster}")
     val numRecords = 1000
-    debug(s"creating producer (IMPLICITLY FOR CLUSTER 0)")
     val producer = createProducer()
-    debug(s"using producer to send $numRecords records to topic-partition $tp1 (IMPLICITLY FOR CLUSTER 0)")
     sendRecords(producer, numRecords, tp1)
 
-    debug(s"creating consumer (IMPLICITLY FOR CLUSTER 0)")
     val consumer = createConsumer()
-    debug(s"'assigning' consumer to topic-partition $tp1 ... or vice-versa (IMPLICITLY FOR CLUSTER 0)")
     consumer.assign(List(tp1).asJava)
-    debug(s"seeking to beginning of topic-partition $tp1 (IMPLICITLY FOR CLUSTER 0)")
     consumer.seek(tp1, 0)
-    debug(s"calling consumeAndVerifyRecords()")
     consumeAndVerifyRecords(consumer = consumer, numRecords = numRecords, startingOffset = 0)
 
-    debug(s"done with functional parts; now running assertions")
 
     // this stuff is just ripped off from PlaintextConsumerTest testQuotaMetricsNotCreatedIfNoQuotasConfigured()
     def assertNoMetric(broker: KafkaServer, name: String, quotaType: QuotaType, clientId: String): Unit = {
@@ -78,7 +69,6 @@ class ProxyBasedFederationTest extends MultiClusterAbstractConsumerTest {
         assertNull("Metric should not have been created " + metricName, broker.metrics.metric(metricName))
     }
     serversByCluster(0).foreach(assertNoExemptRequestMetric(_))
-    debug(s"done with testBasicMultiClusterSetup()\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
   }
 
 }
