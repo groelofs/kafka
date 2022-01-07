@@ -38,7 +38,8 @@ abstract class MultiClusterBaseRequestTest extends MultiClusterIntegrationTestHa
   // If required, override properties by mutating the passed Properties object
   protected def brokerPropertyOverrides(properties: Properties): Unit = {}
 
-  override def modifyConfigs(props: Seq[Properties]): Unit = {
+  override def modifyConfigs(props: Seq[Properties], clusterIndex: Int): Unit = {
+    super.modifyConfigs(props, clusterIndex)
     props.foreach { p =>
       p.put(KafkaConfig.ControlledShutdownEnableProp, "false")
       brokerPropertyOverrides(p)

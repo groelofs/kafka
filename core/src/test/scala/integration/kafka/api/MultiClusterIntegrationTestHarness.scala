@@ -46,25 +46,23 @@ abstract class MultiClusterIntegrationTestHarness extends MultiClusterKafkaServe
   val producerConfigs: Buffer[Properties] = new ArrayBuffer(numClusters) // referenced in MultiClusterAbstractConsumerTest
   val consumerConfigs: Buffer[Properties] = new ArrayBuffer(numClusters) // ditto
   val adminClientConfigs: Buffer[Properties] = new ArrayBuffer(numClusters)
-  val serverConfig = new Properties // TODO: should this be per-cluster, too? (seems likely)
+  val serverConfig = new Properties // unconditional extra configs for all brokers
 
   private val consumers = mutable.Buffer[KafkaConsumer[_, _]]()
   private val producers = mutable.Buffer[KafkaProducer[_, _]]()
   private val adminClients = mutable.Buffer[Admin]()
 
-  protected def interBrokerListenerName: ListenerName = listenerName
-
-  protected def modifyConfigs(props: Seq[Properties]): Unit = {
-    configureListeners(props)
-    props.foreach(_ ++= serverConfig)
-  }
-
-  override def generateConfigsByCluster(clusterId: Int): Seq[KafkaConfig] = {
-    val cfgs = TestUtils.createBrokerConfigs(brokerCountPerCluster, zkConnect(clusterId),
+  override def generateConfigsByCluster(clusterIndex: Int): Seq[KafkaConfig] = {
+    val cfgs = TestUtils.createBrokerConfigs(brokerCountPerCluster, zkConnect(clusterIndex),
       interBrokerSecurityProtocol = Some(securityProtocol), trustStoreFile = trustStoreFile,
       saslProperties = serverSaslProperties, logDirCount = logDirCount)
-    modifyConfigs(cfgs)
+    modifyConfigs(cfgs, clusterIndex)
     cfgs.map(KafkaConfig.fromProps)
+  }
+
+  protected def modifyConfigs(props: Seq[Properties], clusterIndex: Int): Unit = {
+    configureListeners(props)
+    props.foreach(_ ++= serverConfig)
   }
 
   protected def configureListeners(props: Seq[Properties]): Unit = {
@@ -80,6 +78,8 @@ abstract class MultiClusterIntegrationTestHarness extends MultiClusterKafkaServe
       config.setProperty(KafkaConfig.ListenerSecurityProtocolMapProp, listenerSecurityMap)
     }
   }
+
+  protected def interBrokerListenerName: ListenerName = listenerName
 
   @Before
   override def setUp(): Unit = {

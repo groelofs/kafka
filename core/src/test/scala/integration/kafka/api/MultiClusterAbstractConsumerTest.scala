@@ -44,11 +44,14 @@ abstract class MultiClusterAbstractConsumerTest extends MultiClusterBaseRequestT
   val epsilon = 0.1
   override def brokerCountPerCluster: Int = 3
 
-  val topic = "topic"  // TODO:  decide how to extend to multiple clusters:  one topic each?  suffixes?  user's choice?
-  private val part1 = 0
-  val tp1 = new TopicPartition(topic, part1)
-  private val part2 = 1
-  val tp2 = new TopicPartition(topic, part2)
+  val topicBaseName = "TestTopic"
+  val topicNameCluster0 = "Cluster0" + topicBaseName
+  val topicNameCluster1 = "Cluster1" + topicBaseName
+  val tp1c0 = new TopicPartition(topicNameCluster0, 0)
+  val tp2c0 = new TopicPartition(topicNameCluster0, 1)  // not actually used currently...
+  val tp1c1 = new TopicPartition(topicNameCluster1, 0)
+  // limit the test topics to no more than two brokers per partition as replicas
+  val replicaCount = if (brokerCountPerCluster > 2) 2 else brokerCountPerCluster
 
   val producerClientId = "MultiClusterTestProducerID"  // all three of these are fine to be the same across physical
   val consumerClientId = "MultiClusterTestConsumerID"  // clusters even in the federated case since physical clusters
@@ -81,8 +84,9 @@ abstract class MultiClusterAbstractConsumerTest extends MultiClusterBaseRequestT
       this.consumerConfigs(i).setProperty(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, "6000")
     }
 
-    // create the test topic with all the brokers as replicas
-    createTopic(topic, 2, brokerCountPerCluster)  // TODO:  extend beyond cluster 0
+    // create the test topics
+    createTopic(topicNameCluster0, numPartitions = 2, replicaCount, clusterIndex = 0)
+    createTopic(topicNameCluster1, 1, replicaCount, clusterIndex = 1)  // single-partition topic in 2nd cluster for simplicity
   }
 
   protected class TestConsumerReassignmentListener extends ConsumerRebalanceListener {
@@ -126,7 +130,7 @@ abstract class MultiClusterAbstractConsumerTest extends MultiClusterBaseRequestT
                                         startingKeyAndValueIndex: Int = 0,
                                         startingTimestamp: Long = 0L,
                                         timestampType: TimestampType = TimestampType.CREATE_TIME,
-                                        tp: TopicPartition = tp1,
+                                        tp: TopicPartition = tp1c0,
                                         maxPollRecords: Int = Int.MaxValue): Unit = {
     val records = consumeRecords(consumer, numRecords, maxPollRecords = maxPollRecords)
     val now = System.currentTimeMillis()

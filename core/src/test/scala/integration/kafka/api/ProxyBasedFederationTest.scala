@@ -30,45 +30,19 @@ import kafka.server.QuotaType
  * successfully execute all parts of its API?
  */
 class ProxyBasedFederationTest extends MultiClusterAbstractConsumerTest {
-  override def numClusters: Int = 2  // need one ZK instance for each Kafka cluster [FIXME: can we "chroot" instead?]
+  override def numClusters: Int = 2  // need one ZK instance for each Kafka cluster  [TODO: can we "chroot" instead?]
   override def brokerCountPerCluster: Int = 3  // three _per Kafka cluster_, i.e., six total
 
   @Test
   def testBasicMultiClusterSetup(): Unit = {
     val numRecords = 1000
     val producer = createProducer()
-    sendRecords(producer, numRecords, tp1)
+    sendRecords(producer, numRecords, tp1c0)
 
     val consumer = createConsumer()
-    consumer.assign(List(tp1).asJava)
-    consumer.seek(tp1, 0)
+    consumer.assign(List(tp1c0).asJava)
+    consumer.seek(tp1c0, 0)
     consumeAndVerifyRecords(consumer = consumer, numRecords = numRecords, startingOffset = 0)
-
-
-    // this stuff is just ripped off from PlaintextConsumerTest testQuotaMetricsNotCreatedIfNoQuotasConfigured()
-    def assertNoMetric(broker: KafkaServer, name: String, quotaType: QuotaType, clientId: String): Unit = {
-        val metricName = broker.metrics.metricName(name,
-                                  quotaType.toString,
-                                  "",
-                                  "user", "",
-                                  "client-id", clientId)
-        assertNull("Metric should not have been created " + metricName, broker.metrics.metric(metricName))
-    }
-    serversByCluster(0).foreach(assertNoMetric(_, "byte-rate", QuotaType.Produce, producerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "throttle-time", QuotaType.Produce, producerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "byte-rate", QuotaType.Fetch, consumerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "throttle-time", QuotaType.Fetch, consumerClientId))
-
-    serversByCluster(0).foreach(assertNoMetric(_, "request-time", QuotaType.Request, producerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "throttle-time", QuotaType.Request, producerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "request-time", QuotaType.Request, consumerClientId))
-    serversByCluster(0).foreach(assertNoMetric(_, "throttle-time", QuotaType.Request, consumerClientId))
-
-    def assertNoExemptRequestMetric(broker: KafkaServer): Unit = {
-        val metricName = broker.metrics.metricName("exempt-request-time", QuotaType.Request.toString, "")
-        assertNull("Metric should not have been created " + metricName, broker.metrics.metric(metricName))
-    }
-    serversByCluster(0).foreach(assertNoExemptRequestMetric(_))
   }
 
 }
